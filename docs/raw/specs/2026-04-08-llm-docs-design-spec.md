@@ -197,15 +197,19 @@ project-root/
 **调用方式**：
 
 ```
+/docs-ingest                               # 默认：从当前分支 vs main 自动发现待归档文件
 /docs-ingest path/to/file.md              # 文件输入
 /docs-ingest "我们决定放弃 Redis..."        # 自由文本输入
 /docs-ingest https://...                   # URL 输入
 ```
 
+**自动发现模式**（无参数）：通过 `git diff --name-only main...HEAD` 找出当前分支相对于 main 新增或修改的文件，筛选出文档相关文件（`.md` 文件、匹配 spec/design/adr/rfc/plan 等模式的文件），排除已在 log.md 中记录过的文件，列出候选文件供用户选择后批量 ingest。
+
 **流程**：
 
 1. 读取 `docs/schema.md` 获取当前约定
 2. 获取输入内容
+   - 无参数 → 自动发现模式，从分支 diff 中筛选候选文件
    - 文件 → 读取文件内容
    - 自由文本 → 直接使用
    - URL → 通过 WebFetch 抓取

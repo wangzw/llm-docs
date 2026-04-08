@@ -3,7 +3,7 @@ name: docs-ingest
 description: Add a new document to the LLM-Docs system. Supports file paths, free text, and URLs. Classifies the document, archives it to docs/raw/, updates the wiki and index. Use when recording design decisions, importing existing docs, or archiving meeting notes.
 allowed-tools: Read Write Edit Bash Glob Grep WebFetch
 user-invocable: true
-argument-hint: <file-path | "free text" | https://url>
+argument-hint: [file-path | "free text" | https://url]
 ---
 
 # docs-ingest: Add Document to Documentation System
@@ -14,17 +14,38 @@ Add a new document to the LLM-Docs documentation system. The document is classif
 
 The argument `$ARGUMENTS` determines the input type:
 
-1. **File path** — argument is a path to an existing file (check with Glob/Read)
+1. **No argument (default)** — auto-discover mode. Compare the current branch against `main` to find new or changed files that should be ingested (specs, plans, design docs, ADRs, etc.). See **Auto-discover Mode** below.
+2. **File path** — argument is a path to an existing file (check with Glob/Read)
    - Read the file content
    - `source_type: file`
-2. **URL** — argument starts with `http://` or `https://`
+3. **URL** — argument starts with `http://` or `https://`
    - Fetch content via WebFetch
    - `source_type: url`
    - Record the URL in `source_url` frontmatter field
-3. **Free text** — argument is quoted text or anything that is not a file path or URL
+4. **Free text** — argument is quoted text or anything that is not a file path or URL
    - Use the text directly as content
    - `source_type: text`
-4. **No argument** — ask the user what they want to ingest
+
+### Auto-discover Mode
+
+When no argument is provided:
+
+1. Run `git diff --name-only --diff-filter=A main...HEAD` to find files added on the current branch (compared to `main`)
+2. Also run `git diff --name-only --diff-filter=M main...HEAD` to find modified files
+3. Filter candidates to documentation-relevant files:
+   - Markdown files (`.md`) outside of `docs/` (files inside `docs/` are managed by the system itself)
+   - Files matching common design doc patterns: `*spec*`, `*design*`, `*adr*`, `*rfc*`, `*plan*`, `*architecture*`, `*prd*`
+   - Other files the LLM judges to be documentation based on content (e.g. a `.md` file describing an API)
+4. Cross-reference with `docs/log.md` — exclude files that have already been ingested (matching by file path in `source` field)
+5. If candidates are found, present them to the user:
+
+> "发现以下文件可能需要归档：
+> 1. `path/to/new-spec.md` — (new) 看起来是设计规格
+> 2. `path/to/updated-plan.md` — (modified) 看起来是实现计划
+> 选择要 ingest 的文件（全部/逐项确认/跳过）："
+
+6. For each confirmed file, proceed with the normal ingest workflow (Step 2 onwards)
+7. If no candidates are found, tell the user and ask if they want to provide input manually
 
 ## Workflow
 
