@@ -11,7 +11,7 @@ immutable: true
 
 ## 概述
 
-LLM-Docs 是一套基于 LLM 驱动的软件工程文档管理系统，以 Claude Code Skills 形式交付。它借鉴 Karpathy 的 LLM Wiki 模式，将软件文档组织为三层架构，通过三个核心操作（ingest、lint、query）实现文档的持续维护，服务于 AI coding agent 和人类开发者。
+LLM-Docs 是一套基于 LLM 驱动的软件工程文档管理系统，以 Claude Code Skills 形式交付。它借鉴 Karpathy 的 LLM Wiki 模式，将软件文档组织为三层架构，通过四个核心操作（ingest、update、lint、query）实现文档的持续维护，服务于 AI coding agent 和人类开发者。
 
 ### 设计目标
 
@@ -25,7 +25,7 @@ LLM-Docs 是一套基于 LLM 驱动的软件工程文档管理系统，以 Claud
 
 ### 第一层：原始文档（`docs/raw/`）
 
-不可变的历史归档。每次 ingest 的原始内容存放于此，写入后永不修改、永不删除。
+原始文档归档。每次 ingest 的原始内容存放于此。文件通常保持稳定，需要变更时通过 `/docs-update` 操作，变更经 git history 和 log.md 双重追踪。
 
 内部按软件工程文档分类组织子目录：
 
@@ -82,9 +82,9 @@ tags: [architecture, auth]
 | | 第一层（docs/raw/） | 第二层（docs/wiki/） |
 |---|---|---|
 | 谁写 | 人 / skill / ingest | LLM 维护 |
-| 可变性 | 不可变，写入后不修改 | 持续更新 |
-| 内容性质 | 某个时间点的原始记录 | 综合提炼的当前状态 |
-| frontmatter | 带 `immutable: true` | 带 `sources: [...]` |
+| 可变性 | 通常稳定，变更需经 `/docs-update` | 持续更新 |
+| 内容性质 | 某个时间点的原始记录（可演进） | 综合提炼的当前状态 |
+| frontmatter | 带 `source_type`、`ingested_at` | 带 `sources: [...]` |
 
 ### 第三层：AI 入口（`docs/schema.md` + `docs/README.md`）
 
@@ -106,7 +106,7 @@ tags: [architecture, auth]
 
 **`docs/log.md`** — 操作审计日志（append-only）：
 
-- 仅记录产生文件变更的操作（ingest、lint 修复、query 回写）
+- 仅记录产生文件变更的操作（ingest、update、lint 修复、query 回写）
 - 纯查询操作不记录
 - 格式：`## [YYYY-MM-DD] operation | subject`
 
@@ -120,6 +120,8 @@ project-root/
 │       ├── docs-init/
 │       │   └── SKILL.md
 │       ├── docs-ingest/
+│       │   └── SKILL.md
+│       ├── docs-update/
 │       │   └── SKILL.md
 │       ├── docs-lint/
 │       │   └── SKILL.md
@@ -151,7 +153,7 @@ project-root/
 2. **frontmatter 兼容 Obsidian** — `tags` 使用 YAML 列表格式
 3. **`docs-init` 时可选生成 `.obsidian/` 配置** — 询问用户是否需要，如需要则生成基础配置
 
-## 四个 Skills
+## 五个 Skills
 
 ### Skill 1: `docs-init`
 
@@ -224,7 +226,33 @@ project-root/
 
 **未处理文件检测**：当其他 skill（如 brainstorming、writing-plans）直接向 `docs/raw/` 输出文件时，这些文件的 raw 归档已完成，但 wiki 尚未更新。ingest 在执行时检测到这种情况后提示用户，确保 wiki 保持同步。
 
-### Skill 3: `docs-lint`
+### Skill 3: `docs-update`
+
+原地更新 raw/ 文档，并同步 wiki。
+
+**调用方式**：
+
+```
+/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"
+/docs-update docs/raw/plans/2026-04-08-impl.md               # 交互式询问原因
+```
+
+**流程**：
+
+1. 读取 `docs/schema.md` 获取当前约定
+2. 读取目标 raw 文件，理解当前内容
+3. 读取 `docs/README.md` 找到引用该 raw 文件的 wiki 页面，理解当前综合状态
+4. 确认变更内容和原因（如未通过参数提供则交互式询问）
+5. 原地修改 raw 文件，保留 `ingested_at`、`source_type` 等原始 frontmatter 不变
+6. 找到所有 `sources` 中引用了该 raw 文件的 wiki 页面，重新综合生成
+7. 如需要，更新 `docs/README.md`
+8. 追加 `docs/log.md`（记录变更原因和摘要）
+9. 向用户展示变更摘要
+10. git commit
+
+**设计动机**：虽然 raw/ 文件设计为稳定记录，但实际工作中 spec 和 plan 在实施过程中会演进。与其让文档与现实脱节，不如提供有审计追踪的正式变更通道。git history 提供完整 diff，log.md 记录变更语义（为什么改、改了什么）。
+
+### Skill 4: `docs-lint`
 
 检查文档一致性，审计文档与代码的匹配度。
 
@@ -252,7 +280,7 @@ project-root/
 5. 询问用户是否自动修复（更新 wiki 页面）
 6. 如有修复 → 追加 `docs/log.md` + git commit
 
-### Skill 4: `docs-query`
+### Skill 5: `docs-query`
 
 查询文档系统，支持开发者问答和 agent 上下文注入两种模式。
 
@@ -315,6 +343,9 @@ allowed-tools: Read Write Bash Glob Grep
 # docs-ingest
 allowed-tools: Read Write Edit Bash Glob Grep WebFetch
 
+# docs-update
+allowed-tools: Read Write Edit Bash Glob Grep
+
 # docs-lint
 allowed-tools: Read Write Edit Bash Glob Grep
 
@@ -324,7 +355,7 @@ allowed-tools: Read Glob Grep WebFetch
 
 ## 设计原则
 
-1. **不可变性** — raw/ 中的文件写入后永不修改，保留完整历史
+1. **可控变更** — raw/ 中的文件通常保持稳定，需要修改时通过 `/docs-update` 进行，变更经 git history 和 log.md 双重追踪
 2. **单一信息源** — wiki/ 是"当前状态"的唯一权威来源
 3. **最小侵入** — 不改变项目现有结构，docs/ 是唯一新增目录
 4. **渐进式** — 冷启动即可用，随使用逐步丰富
