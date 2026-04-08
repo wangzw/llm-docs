@@ -120,6 +120,8 @@ Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（
 - index updated: 变更描述
 
 ## [YYYY-MM-DD] lint
+- scope: branch (branch-name vs main) | incremental (last..current) | full
+- commit: <short hash>
 - checked: N wiki pages, M source files
 - issues: N (问题摘要)
 - fixed: 修复描述

@@ -3,7 +3,7 @@ name: docs-lint
 description: Check documentation consistency and audit docs against code. Validates wiki links, source references, detects contradictions between wiki pages, and performs deep comparison of documentation against actual code (API endpoints, data models, configs, function signatures). Use when you suspect docs are out of date or before major releases.
 allowed-tools: Read Write Edit Bash Glob Grep
 user-invocable: true
-argument-hint: ""
+argument-hint: [--full]
 ---
 
 # docs-lint: Documentation Consistency Check & Code Audit
@@ -13,6 +13,35 @@ Check the documentation system for internal consistency and audit documentation 
 ## Pre-flight Check
 
 Read `docs/schema.md`. If it does not exist, tell the user to run `/docs-init` first and stop.
+
+## Scope Detection
+
+Determine the lint scope based on the current branch:
+
+### Branch Mode (current branch != main)
+
+When on a feature/development branch, lint only the documentation changes introduced on this branch:
+
+1. Run `git diff --name-only main...HEAD` to find files changed on the branch
+2. Filter to files under `docs/` — these are the documentation changes to lint
+3. Also include any code files changed on the branch — these are the code changes to cross-reference against documentation
+4. The lint scope is narrowed to:
+   - **Phase 1**: Only check consistency of changed/added wiki pages and their links (not the entire docs/ tree)
+   - **Phase 2**: Only audit changed wiki pages against changed code. Also check: does the changed code introduce new behaviors that should be documented but aren't?
+
+### Main Mode (current branch == main)
+
+When on main, lint incrementally since the last lint:
+
+1. Read `docs/log.md` and find the most recent `lint` entry. Extract its `commit` field (the commit ID recorded at last lint).
+2. If a previous lint commit exists:
+   - Run `git diff --name-only <last-lint-commit>..HEAD` to find files changed since last lint
+   - Narrow scope to those changes (same logic as Branch Mode)
+3. If no previous lint entry exists, perform a **full lint** of all docs and code (no scope narrowing)
+
+### Full Mode Override
+
+If `$ARGUMENTS` contains `--full`, always perform a full lint regardless of branch or prior lint state.
 
 ## Lint Workflow
 
@@ -135,10 +164,14 @@ If the user chooses to fix:
 
 ```markdown
 ## [YYYY-MM-DD] lint
+- scope: <branch (branch-name vs main) | incremental (last-commit..current-commit) | full>
+- commit: <current HEAD commit ID (short hash)>
 - checked: N wiki pages, M source files
 - issues: N (summary)
 - fixed: description of fixes applied
 ```
+
+The `commit` field is always written — it serves as the checkpoint for the next incremental lint on main.
 
 5. Commit:
 
