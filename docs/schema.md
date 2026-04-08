@@ -85,19 +85,20 @@ Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（
 
 ### ingest
 
-- **输入**：文件路径 / 自由文本 / URL
+- **输入**：无参数（自动从 `git diff main...HEAD` 发现待归档文件）/ 文件路径 / 自由文本 / URL
 - **输出**：raw/ 中的新文件 + wiki/ 的更新 + README.md 更新 + log.md 记录
 - **不变量**：raw/ 中的文件一旦写入不可修改（update 操作除外）
 
 ### update
 
-- **输入**：raw/ 文件路径 + 变更原因
+- **输入**：无参数（自动从 git log 匹配需更新的 raw 文档）/ `--from-commits [range]` / raw/ 文件路径 + 变更原因
 - **输出**：raw/ 文件原地更新 + wiki/ 同步 + log.md 记录
 - **约束**：仅通过 `/docs-update` skill 修改 raw/ 文件，变更通过 git history 追踪
 
 ### lint
 
-- **输入**：无参数，扫描整个 docs/ 和项目代码
+- **输入**：无参数（自动检测范围）/ `--full`（强制全量）
+- **范围检测**：分支模式（`git diff main...HEAD`）/ 增量模式（main 上从上次 lint commit 起）/ 全量模式
 - **输出**：lint 报告（错误/警告/通过） + 可选自动修复
 - **范围**：文档间一致性 + 文档与代码的深度对照
 
@@ -133,6 +134,7 @@ Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（
 
 ## [YYYY-MM-DD] update | 文档标题
 - raw: raw/category/filename.md
+- source: manual | commits (range)
 - reason: 变更原因
 - changes: 变更摘要
 - wiki updated: wiki/page.md (updated)

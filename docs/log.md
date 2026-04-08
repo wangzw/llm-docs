@@ -26,3 +26,10 @@
 - reason: schema.md 操作契约描述缺少 update
 - changes: 操作契约补充 update
 - wiki updated: wiki/llm-docs-overview.md (updated)
+
+## [2026-04-08] lint
+- scope: full
+- commit: 6da5d33
+- checked: 1 wiki pages, 5 skill files
+- issues: 3 warnings (schema.md 操作契约和日志格式未反映最新 skill 行为)
+- fixed: 更新 schema.md 操作契约（ingest/update/lint 加入无参数默认模式描述）；补充 update 日志格式的 source 字段
