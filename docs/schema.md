@@ -87,7 +87,13 @@ Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（
 
 - **输入**：文件路径 / 自由文本 / URL
 - **输出**：raw/ 中的新文件 + wiki/ 的更新 + README.md 更新 + log.md 记录
-- **不变量**：raw/ 中的文件一旦写入不可修改
+- **不变量**：raw/ 中的文件一旦写入不可修改（update 操作除外）
+
+### update
+
+- **输入**：raw/ 文件路径 + 变更原因
+- **输出**：raw/ 文件原地更新 + wiki/ 同步 + log.md 记录
+- **约束**：仅通过 `/docs-update` skill 修改 raw/ 文件，变更通过 git history 追踪
 
 ### lint
 
@@ -122,6 +128,12 @@ Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（
 - question: 原始问题
 - raw: raw/category/filename.md
 - wiki updated: wiki/page.md (created | updated)
+
+## [YYYY-MM-DD] update | 文档标题
+- raw: raw/category/filename.md
+- reason: 变更原因
+- changes: 变更摘要
+- wiki updated: wiki/page.md (updated)
 ```
 
 ## 演进规则

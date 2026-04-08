@@ -16,22 +16,23 @@ LLM-Docs 是一套基于 LLM 驱动的软件工程文档管理系统，以 Claud
 
 ## 三层架构
 
-- **第一层 `raw/`**：不可变的原始文档归档。按软件工程文档类型分子目录（specs、plans、architecture、adr、api、guides、prd、meeting 等）。写入后永不修改。
+- **第一层 `raw/`**：原始文档归档。按软件工程文档类型分子目录（specs、plans、architecture、adr、api、guides、prd、meeting 等）。通常写入后保持稳定，需要变更时通过 `/docs-update` 操作并留下审计记录。
 - **第二层 `wiki/`**：LLM 自主维护的当前知识库。综合提炼 raw/ 中的历史文档，反映项目的当前状态。LLM 完全控制此目录的组织结构和交叉引用。
 - **第三层 `schema.md` + `README.md`**：AI coding agent 的入口。schema.md 定义系统约定，README.md 提供 wiki 导航索引。
 
-## 四个操作 Skill
+## 五个操作 Skill
 
 | Skill | 功能 | 调用方式 |
 |-------|------|----------|
 | `/docs-init` | 初始化文档系统 | `/docs-init` |
 | `/docs-ingest` | 添加文档 → 更新 wiki | `/docs-ingest <file\|text\|url>` |
+| `/docs-update` | 原地更新 raw 文档 + 审计 | `/docs-update <raw-file> [reason]` |
 | `/docs-lint` | 文档一致性 + 代码审计 | `/docs-lint` |
 | `/docs-query` | 开发者问答 / agent 上下文注入 | `/docs-query <question\|--context file>` |
 
 ## 设计原则
 
-1. **不可变性** — raw/ 写入后不修改
+1. **可控变更** — raw/ 文件通常稳定，需要修改时通过 `/docs-update` 进行，变更经 git history 和 log.md 双重追踪
 2. **单一信息源** — wiki/ 是"当前状态"的唯一权威
 3. **最小侵入** — docs/ 是唯一新增目录
 4. **渐进式** — 冷启动即可用，随使用逐步丰富
