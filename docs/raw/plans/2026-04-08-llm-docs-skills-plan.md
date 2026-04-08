@@ -1,8 +1,8 @@
 # LLM-Docs Skills Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
-**Goal:** Implement the four Claude Code Skills (docs-init, docs-ingest, docs-lint, docs-query) that form the LLM-Docs documentation management system.
+**Goal:** Implement the five Claude Code Skills (docs-init, docs-ingest, docs-update, docs-lint, docs-query) that form the LLM-Docs documentation management system.
 
 **Architecture:** Each skill is a directory under `.claude/skills/` with a `SKILL.md` entry point. Skills are prompt-based — they instruct the LLM how to perform each operation. All skills read `docs/schema.md` as their shared configuration. Since skills are markdown prompt files (not executable code), testing means invoking each skill and verifying it behaves correctly.
 
@@ -17,14 +17,16 @@
 ├── docs-init/
 │   └── SKILL.md          # Initialize documentation system
 ├── docs-ingest/
-│   └── SKILL.md          # Add documents and update wiki
+│   └── SKILL.md          # Add documents and update wiki (supports auto-discover via git diff main)
+├── docs-update/
+│   └── SKILL.md          # Update raw docs in-place with audit logging (supports --from-commits)
 ├── docs-lint/
-│   └── SKILL.md          # Check doc consistency + code audit
+│   └── SKILL.md          # Check doc consistency + code audit (branch/incremental/full scope)
 └── docs-query/
     └── SKILL.md          # Developer Q&A + agent context injection
 ```
 
-All four files are new. No existing files are modified in this plan (CLAUDE.md and docs/ structure are already in place from bootstrapping).
+All five files are new. No existing files are modified in this plan (CLAUDE.md and docs/ structure are already in place from bootstrapping).
 
 ---
 
@@ -33,13 +35,13 @@ All four files are new. No existing files are modified in this plan (CLAUDE.md a
 **Files:**
 - Create: `.claude/skills/docs-init/SKILL.md`
 
-- [ ] **Step 1: Create the skill directory**
+- [x] **Step 1: Create the skill directory**
 
 ```bash
 mkdir -p .claude/skills/docs-init
 ```
 
-- [ ] **Step 2: Write SKILL.md**
+- [x] **Step 2: Write SKILL.md**
 
 Write the following content to `.claude/skills/docs-init/SKILL.md`:
 
@@ -191,12 +193,12 @@ Report to the user:
 > 使用 `/docs-ingest` 添加文档，`/docs-lint` 检查一致性，`/docs-query` 查询文档。"
 ```
 
-- [ ] **Step 3: Verify the skill file**
+- [x] **Step 3: Verify the skill file**
 
 Run: `cat .claude/skills/docs-init/SKILL.md | head -5`
 Expected: frontmatter with `name: docs-init`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/skills/docs-init/SKILL.md
@@ -210,13 +212,13 @@ git commit -m "feat: add docs-init skill for documentation system initialization
 **Files:**
 - Create: `.claude/skills/docs-ingest/SKILL.md`
 
-- [ ] **Step 1: Create the skill directory**
+- [x] **Step 1: Create the skill directory**
 
 ```bash
 mkdir -p .claude/skills/docs-ingest
 ```
 
-- [ ] **Step 2: Write SKILL.md**
+- [x] **Step 2: Write SKILL.md**
 
 Write the following content to `.claude/skills/docs-ingest/SKILL.md`:
 
@@ -226,7 +228,7 @@ name: docs-ingest
 description: Add a new document to the LLM-Docs system. Supports file paths, free text, and URLs. Classifies the document, archives it to docs/raw/, updates the wiki and index. Use when recording design decisions, importing existing docs, or archiving meeting notes.
 allowed-tools: Read Write Edit Bash Glob Grep WebFetch
 user-invocable: true
-argument-hint: <file-path | "free text" | https://url>
+argument-hint: [file-path | "free text" | https://url]
 ---
 
 # docs-ingest: Add Document to Documentation System
@@ -237,17 +239,17 @@ Add a new document to the LLM-Docs documentation system. The document is classif
 
 The argument `$ARGUMENTS` determines the input type:
 
-1. **File path** — argument is a path to an existing file (check with Glob/Read)
+1. **No argument (default)** — auto-discover mode. Compare current branch against `main` via `git diff --name-only main...HEAD` to find new/modified documentation files. Filter to `.md` files outside `docs/`, matching patterns like spec/design/adr/rfc/plan. Exclude already-ingested files. Present candidates for user selection.
+2. **File path** — argument is a path to an existing file (check with Glob/Read)
    - Read the file content
    - `source_type: file`
-2. **URL** — argument starts with `http://` or `https://`
+3. **URL** — argument starts with `http://` or `https://`
    - Fetch content via WebFetch
    - `source_type: url`
    - Record the URL in `source_url` frontmatter field
-3. **Free text** — argument is quoted text or anything that is not a file path or URL
+4. **Free text** — argument is quoted text or anything that is not a file path or URL
    - Use the text directly as content
    - `source_type: text`
-4. **No argument** — ask the user what they want to ingest
 
 ## Workflow
 
@@ -358,12 +360,12 @@ docs: ingest <document title>
 ```
 ```
 
-- [ ] **Step 3: Verify the skill file**
+- [x] **Step 3: Verify the skill file**
 
 Run: `cat .claude/skills/docs-ingest/SKILL.md | head -5`
 Expected: frontmatter with `name: docs-ingest`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/skills/docs-ingest/SKILL.md
@@ -372,18 +374,41 @@ git commit -m "feat: add docs-ingest skill for document ingestion and wiki updat
 
 ---
 
-### Task 3: Create docs-lint Skill
+### Task 3: Create docs-update Skill
+
+**Files:**
+- Create: `.claude/skills/docs-update/SKILL.md`
+
+- [x] **Step 1: Create the skill directory and write SKILL.md**
+
+Create `.claude/skills/docs-update/SKILL.md` with:
+- Frontmatter: `name: docs-update`, `allowed-tools: Read Write Edit Bash Glob Grep`, `user-invocable: true`, `argument-hint: [raw-file-path] [reason | --from-commits [range]]`
+- **Input modes**: No argument (auto-detect from commits), `--from-commits [range]`, file path + `--from-commits`, file path + reason, file path only
+- **Auto-detect workflow**: Determine commit range from log.md → analyze commits → match to raw documents by topic/tags/paths → present candidates → user confirms
+- **Manual workflow**: Read target file + wiki context → ask user for changes
+- **Update**: Modify raw file preserving `ingested_at`/`source_type` → propagate to wiki → update README.md → append log.md with `source: manual | commits (range)` → commit
+
+- [x] **Step 2: Commit**
+
+```bash
+git add .claude/skills/docs-update/SKILL.md
+git commit -m "feat: add docs-update skill for controlled raw document mutation"
+```
+
+---
+
+### Task 4: Create docs-lint Skill
 
 **Files:**
 - Create: `.claude/skills/docs-lint/SKILL.md`
 
-- [ ] **Step 1: Create the skill directory**
+- [x] **Step 1: Create the skill directory**
 
 ```bash
 mkdir -p .claude/skills/docs-lint
 ```
 
-- [ ] **Step 2: Write SKILL.md**
+- [x] **Step 2: Write SKILL.md**
 
 Write the following content to `.claude/skills/docs-lint/SKILL.md`:
 
@@ -393,7 +418,7 @@ name: docs-lint
 description: Check documentation consistency and audit docs against code. Validates wiki links, source references, detects contradictions between wiki pages, and performs deep comparison of documentation against actual code (API endpoints, data models, configs, function signatures). Use when you suspect docs are out of date or before major releases.
 allowed-tools: Read Write Edit Bash Glob Grep
 user-invocable: true
-argument-hint: ""
+argument-hint: [--full]
 ---
 
 # docs-lint: Documentation Consistency Check & Code Audit
@@ -403,6 +428,14 @@ Check the documentation system for internal consistency and audit documentation 
 ## Pre-flight Check
 
 Read `docs/schema.md`. If it does not exist, tell the user to run `/docs-init` first and stop.
+
+## Scope Detection
+
+Determine the lint scope based on the current branch:
+
+- **Branch Mode** (current branch != main): `git diff --name-only main...HEAD` to find changed files. Lint only changed docs and cross-reference against changed code.
+- **Main Mode** (current branch == main): Read last lint `commit` from `docs/log.md`, lint changes since that commit. First run = full lint.
+- **`--full`**: Force full lint regardless of branch or prior state.
 
 ## Lint Workflow
 
@@ -525,6 +558,8 @@ If the user chooses to fix:
 
 ```markdown
 ## [YYYY-MM-DD] lint
+- scope: <branch (branch-name vs main) | incremental (last..current) | full>
+- commit: <short hash>
 - checked: N wiki pages, M source files
 - issues: N (summary)
 - fixed: description of fixes applied
@@ -539,12 +574,12 @@ docs: lint fix — update wiki to match codebase
 If the user chooses to skip, no files are modified and no log entry is written.
 ```
 
-- [ ] **Step 3: Verify the skill file**
+- [x] **Step 3: Verify the skill file**
 
 Run: `cat .claude/skills/docs-lint/SKILL.md | head -5`
 Expected: frontmatter with `name: docs-lint`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/skills/docs-lint/SKILL.md
@@ -553,18 +588,18 @@ git commit -m "feat: add docs-lint skill for documentation consistency checking 
 
 ---
 
-### Task 4: Create docs-query Skill
+### Task 5: Create docs-query Skill
 
 **Files:**
 - Create: `.claude/skills/docs-query/SKILL.md`
 
-- [ ] **Step 1: Create the skill directory**
+- [x] **Step 1: Create the skill directory**
 
 ```bash
 mkdir -p .claude/skills/docs-query
 ```
 
-- [ ] **Step 2: Write SKILL.md**
+- [x] **Step 2: Write SKILL.md**
 
 Write the following content to `.claude/skills/docs-query/SKILL.md`:
 
@@ -695,12 +730,12 @@ Present the context as a structured summary that an AI coding agent can directly
 Do NOT write to log.md (agent mode is a read-only operation with no side effects).
 ```
 
-- [ ] **Step 3: Verify the skill file**
+- [x] **Step 3: Verify the skill file**
 
 Run: `cat .claude/skills/docs-query/SKILL.md | head -5`
 Expected: frontmatter with `name: docs-query`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .claude/skills/docs-query/SKILL.md
@@ -709,26 +744,27 @@ git commit -m "feat: add docs-query skill for documentation Q&A and agent contex
 
 ---
 
-### Task 5: Smoke Test All Skills
+### Task 6: Smoke Test All Skills
 
 **Files:**
 - No new files. Verify existing skills are discoverable.
 
-- [ ] **Step 1: Verify all skill directories exist**
+- [x] **Step 1: Verify all skill directories exist**
 
 ```bash
 ls -la .claude/skills/*/SKILL.md
 ```
 
-Expected output should list 4 files:
+Expected output should list 5 files:
 ```
 .claude/skills/docs-init/SKILL.md
 .claude/skills/docs-ingest/SKILL.md
+.claude/skills/docs-update/SKILL.md
 .claude/skills/docs-lint/SKILL.md
 .claude/skills/docs-query/SKILL.md
 ```
 
-- [ ] **Step 2: Verify frontmatter of each skill**
+- [x] **Step 2: Verify frontmatter of each skill**
 
 ```bash
 for f in .claude/skills/*/SKILL.md; do echo "=== $f ==="; head -4 "$f"; echo; done
@@ -736,19 +772,19 @@ for f in .claude/skills/*/SKILL.md; do echo "=== $f ==="; head -4 "$f"; echo; do
 
 Expected: each file starts with `---` followed by `name: docs-<type>`.
 
-- [ ] **Step 3: Invoke /docs-query as smoke test**
+- [x] **Step 3: Invoke /docs-query as smoke test**
 
 Run `/docs-query "LLM-Docs 系统的三层架构是什么？"`
 
 Expected: The skill loads, reads docs/README.md and docs/wiki/llm-docs-overview.md, and returns an answer citing the three-layer architecture with `[[wiki-links]]` references.
 
-- [ ] **Step 4: Invoke /docs-lint as smoke test**
+- [x] **Step 4: Invoke /docs-lint as smoke test**
 
 Run `/docs-lint`
 
 Expected: The skill loads, reads schema.md, scans docs/ and the codebase, and produces a lint report. Since this is the LLM-Docs project itself (mostly docs, minimal code), expect mostly 🟢 passes with possible 🟡 warnings about limited code coverage.
 
-- [ ] **Step 5: Invoke /docs-ingest as smoke test**
+- [x] **Step 5: Invoke /docs-ingest as smoke test**
 
 Run `/docs-ingest "本项目的实现计划已完成，四个 skill 均已创建并通过冒烟测试。"`
 

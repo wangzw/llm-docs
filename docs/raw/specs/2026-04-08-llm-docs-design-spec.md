@@ -93,7 +93,7 @@ tags: [architecture, auth]
 - 目录结构约定
 - 文档格式规范（frontmatter 字段、交叉引用语法）
 - 分类体系（初始分类 + LLM 自适应扩展规则）
-- 操作契约（ingest/lint/query 的输入输出约定）
+- 操作契约（ingest/update/lint/query 的输入输出约定）
 
 `schema.md` 本身也可以被 LLM 演进 — 随着项目文档增多，LLM 可提议调整分类体系或组织方式，但需经用户确认。
 
