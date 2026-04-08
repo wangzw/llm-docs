@@ -2,7 +2,7 @@
 
 LLM-driven documentation management system for software engineering projects, delivered as [Claude Code](https://docs.anthropic.com/en/docs/claude-code) Skills.
 
-Inspired by [Karpathy's LLM Wiki pattern](https://x.com/karpathy/status/1937538842549903593): humans write source documents and make decisions, the LLM synthesizes, updates, and checks consistency. Documentation becomes a living knowledge base rather than a static artifact.
+Inspired by [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f): humans write source documents and make decisions, the LLM synthesizes, updates, and checks consistency. Documentation becomes a living knowledge base rather than a static artifact.
 
 ## Three-Layer Architecture
 
