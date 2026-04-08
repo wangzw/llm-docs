@@ -233,8 +233,10 @@ project-root/
 **调用方式**：
 
 ```
-/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"
-/docs-update docs/raw/plans/2026-04-08-impl.md               # 交互式询问原因
+/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"  # 手动说明原因
+/docs-update docs/raw/specs/2026-04-08-design.md --from-commits               # 从提交记录提取变更
+/docs-update docs/raw/specs/2026-04-08-design.md --from-commits HEAD~10..HEAD # 指定提交范围
+/docs-update docs/raw/plans/2026-04-08-impl.md                                # 交互式询问原因
 ```
 
 **流程**：
@@ -242,15 +244,21 @@ project-root/
 1. 读取 `docs/schema.md` 获取当前约定
 2. 读取目标 raw 文件，理解当前内容
 3. 读取 `docs/README.md` 找到引用该 raw 文件的 wiki 页面，理解当前综合状态
-4. 确认变更内容和原因（如未通过参数提供则交互式询问）
+4. 确定变更来源：
+   - **手动模式**：用户直接提供原因和变更内容（如未提供则交互式询问）
+   - **`--from-commits` 模式**：从 git 提交记录自动提取变更
+     a. 确定提交范围：使用用户指定的范围，或自动从 log.md 最近一次该文件的 ingest/update 记录日期起算，回退到 `ingested_at`
+     b. 读取范围内的 commit log，过滤掉仅修改 `docs/` 的提交
+     c. 分析相关 commit messages 和变更范围，综合出需要更新的内容
+     d. 向用户展示分析结果，确认后继续
 5. 原地修改 raw 文件，保留 `ingested_at`、`source_type` 等原始 frontmatter 不变
 6. 找到所有 `sources` 中引用了该 raw 文件的 wiki 页面，重新综合生成
 7. 如需要，更新 `docs/README.md`
-8. 追加 `docs/log.md`（记录变更原因和摘要）
+8. 追加 `docs/log.md`（记录变更原因、摘要、来源为 manual 或 commits (range)）
 9. 向用户展示变更摘要
 10. git commit
 
-**设计动机**：虽然 raw/ 文件设计为稳定记录，但实际工作中 spec 和 plan 在实施过程中会演进。与其让文档与现实脱节，不如提供有审计追踪的正式变更通道。git history 提供完整 diff，log.md 记录变更语义（为什么改、改了什么）。
+**设计动机**：虽然 raw/ 文件设计为稳定记录，但实际工作中 spec 和 plan 在实施过程中会演进。与其让文档与现实脱节，不如提供有审计追踪的正式变更通道。git history 提供完整 diff，log.md 记录变更语义（为什么改、改了什么）。`--from-commits` 模式特别适合实现阶段结束后批量同步文档，避免手动逐项描述变更。
 
 ### Skill 4: `docs-lint`
 
