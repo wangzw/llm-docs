@@ -3,7 +3,7 @@ name: docs-update
 description: Update an existing raw/ document in-place with audit logging. Use when a spec, plan, or other raw document needs correction or evolution during implementation. Propagates changes to wiki and logs the mutation for traceability.
 allowed-tools: Read Write Edit Bash Glob Grep
 user-invocable: true
-argument-hint: <raw-file-path> [reason | --from-commits [range]]
+argument-hint: [raw-file-path] [reason | --from-commits [range]]
 ---
 
 # docs-update: Update Raw Document
@@ -14,18 +14,19 @@ Update an existing `docs/raw/` document in-place. While raw documents are design
 
 Parse `$ARGUMENTS`:
 
-1. **File path + `--from-commits` [range]** — update the raw file based on git commit history
-   - Example: `docs/raw/specs/2026-04-08-design.md --from-commits`
-   - Example: `docs/raw/specs/2026-04-08-design.md --from-commits HEAD~10..HEAD`
-   - Example: `docs/raw/specs/2026-04-08-design.md --from-commits abc123..def456`
-   - If no range is given, default to commits since the file's `ingested_at` date (or last update log entry)
-2. **File path + reason** — first argument is a path to a file under `docs/raw/`, remaining text is the reason for the update
-   - Example: `docs/raw/specs/2026-04-08-design.md "add error handling section"`
-3. **File path only** — path to a `docs/raw/` file, no reason provided
+1. **No argument (default)** — auto-detect mode. Analyze recent git commits to find which raw documents need updating. This is the most common usage.
+   - Example: `/docs-update`
+2. **`--from-commits` [range] only** — same as above but with an explicit commit range
+   - Example: `/docs-update --from-commits HEAD~10..HEAD`
+3. **File path + `--from-commits` [range]** — update a specific raw file based on git commit history
+   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md --from-commits`
+   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md --from-commits abc123..def456`
+4. **File path + reason** — update a specific raw file with a manually described reason
+   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"`
+5. **File path only** — path to a `docs/raw/` file, no reason provided
    - Ask the user for the reason before proceeding
-4. **No argument** — ask the user which raw file to update and why
 
-Validate that the target file exists and is under `docs/raw/`. If not, stop with an error.
+If a file path is provided, validate that it exists and is under `docs/raw/`. If not, stop with an error.
 
 ## Workflow
 
@@ -33,36 +34,59 @@ Validate that the target file exists and is under `docs/raw/`. If not, stop with
 
 Read `docs/schema.md`. If it does not exist, tell the user to run `/docs-init` first and stop.
 
-### Step 2: Understand Context
+### Step 2: Gather Commit History
 
-1. Read the target raw file in full
-2. Read `docs/README.md` to find wiki pages that reference this raw file
-3. Read those wiki pages to understand the current synthesized state
+This step applies when no file path is provided, or when `--from-commits` is used (with or without a file path). If a file path + manual reason was provided, skip to **Step 3**.
 
-If `--from-commits` was specified, proceed to **Step 2a**. Otherwise:
+#### 2.1 Determine Commit Range
 
-4. Ask the user (if not already provided via argument or conversation context):
-   - What changes are needed?
-   - Why? (bug found, scope change, implementation feedback, etc.)
+- If an explicit range was provided (e.g. `HEAD~10..HEAD`), use it
+- Otherwise, find the last boundary from `docs/log.md`: scan for the most recent `ingest` or `update` entry, use that date as `--since`. If no log entry exists, use the earliest `ingested_at` date across all raw files
 
-### Step 2a: Extract Changes from Git History (--from-commits mode)
+#### 2.2 Analyze Commits
 
-1. Determine the commit range:
-   - If an explicit range was provided (e.g. `HEAD~10..HEAD`, `abc123..def456`), use it
-   - Otherwise, find the last relevant boundary: check `docs/log.md` for the most recent `ingest` or `update` entry for this raw file, and use that date as the `--since` parameter. If no log entry exists, fall back to the file's `ingested_at` frontmatter date
-2. Run `git log --oneline <range>` (or `git log --since=<date> --oneline`) to get the commit list. Exclude commits that only touch files under `docs/` (those are documentation-only changes, not implementation changes)
-3. For commits that look relevant to the raw document's topic, run `git show --stat <hash>` to understand the scope, and read commit messages in full
-4. Synthesize the commit history into:
-   - **reason**: a summary of why the document needs updating (derived from the pattern of changes)
-   - **changes needed**: specific sections of the raw document that are now outdated or incomplete, with what the new content should reflect
-5. Present the analysis to the user for confirmation before proceeding:
+1. Run `git log --oneline <range>` (or `git log --since=<date> --oneline`). Exclude commits that only touch files under `docs/`
+2. For relevant commits, run `git show --stat <hash>` and read full commit messages
+
+#### 2.3 Match Commits to Raw Documents
+
+1. Read all raw files under `docs/raw/` and build a topic map (file → title, tags, key concepts)
+2. For each non-docs commit, determine which raw documents it relates to by matching:
+   - Changed file paths against topics described in raw documents
+   - Commit message keywords against raw document titles and tags
+   - Module/component names against concepts in raw documents
+3. Group commits by matched raw document
+
+#### 2.4 Identify Documents Needing Update
+
+For each raw document with matched commits, assess whether the commits introduce changes that make the document outdated or incomplete. Produce a list of `(raw file, reason, changes needed)`.
+
+If no file path was provided, present the full list to the user:
+
+> "根据提交记录分析，以下文档需要更新：
+> 1. `docs/raw/specs/2026-04-08-design.md` — <reason summary>
+> 2. `docs/raw/plans/2026-04-08-impl.md` — <reason summary>
+> 选择要更新的文档编号（全部/逐项确认/跳过）："
+
+If a specific file path was provided, only show the analysis for that file:
 
 > "根据提交记录分析，以下内容需要更新：
 > - <change 1>
 > - <change 2>
 > 是否继续？"
 
-If the user confirms, proceed to Step 3 with the synthesized changes. If not, ask what adjustments are needed.
+Proceed to Step 3 with user-confirmed documents and their synthesized changes. For each confirmed document, read it in full and read its associated wiki pages before updating.
+
+### Step 2-alt: Manual Mode
+
+If a file path was provided without `--from-commits` and without a reason:
+
+1. Read the target raw file in full
+2. Read `docs/README.md` to find wiki pages that reference this raw file
+3. Read those wiki pages to understand the current synthesized state
+4. Ask the user:
+   - What changes are needed?
+   - Why? (bug found, scope change, implementation feedback, etc.)
 
 ### Step 3: Update the Raw File
 

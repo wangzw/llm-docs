@@ -233,32 +233,30 @@ project-root/
 **调用方式**：
 
 ```
-/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"  # 手动说明原因
-/docs-update docs/raw/specs/2026-04-08-design.md --from-commits               # 从提交记录提取变更
-/docs-update docs/raw/specs/2026-04-08-design.md --from-commits HEAD~10..HEAD # 指定提交范围
-/docs-update docs/raw/plans/2026-04-08-impl.md                                # 交互式询问原因
+/docs-update                                                                   # 默认：从提交记录自动发现需更新的文档
+/docs-update --from-commits HEAD~10..HEAD                                      # 指定提交范围
+/docs-update docs/raw/specs/2026-04-08-design.md --from-commits               # 指定文件 + 从提交记录
+/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"  # 指定文件 + 手动原因
 ```
 
 **流程**：
 
 1. 读取 `docs/schema.md` 获取当前约定
-2. 读取目标 raw 文件，理解当前内容
-3. 读取 `docs/README.md` 找到引用该 raw 文件的 wiki 页面，理解当前综合状态
-4. 确定变更来源：
-   - **手动模式**：用户直接提供原因和变更内容（如未提供则交互式询问）
-   - **`--from-commits` 模式**：从 git 提交记录自动提取变更
-     a. 确定提交范围：使用用户指定的范围，或自动从 log.md 最近一次该文件的 ingest/update 记录日期起算，回退到 `ingested_at`
-     b. 读取范围内的 commit log，过滤掉仅修改 `docs/` 的提交
-     c. 分析相关 commit messages 和变更范围，综合出需要更新的内容
-     d. 向用户展示分析结果，确认后继续
-5. 原地修改 raw 文件，保留 `ingested_at`、`source_type` 等原始 frontmatter 不变
-6. 找到所有 `sources` 中引用了该 raw 文件的 wiki 页面，重新综合生成
-7. 如需要，更新 `docs/README.md`
-8. 追加 `docs/log.md`（记录变更原因、摘要、来源为 manual 或 commits (range)）
-9. 向用户展示变更摘要
-10. git commit
+2. **自动发现模式**（默认，无参数或仅 `--from-commits`）：
+   a. 确定提交范围：使用用户指定的范围，或自动从 log.md 最近一次 ingest/update 记录日期起算
+   b. 读取范围内的 commit log，过滤掉仅修改 `docs/` 的提交
+   c. 读取所有 raw 文件，构建主题映射（文件 → 标题、标签、关键概念）
+   d. 将每个 commit 与相关的 raw 文档匹配（通过文件路径、commit message 关键词、模块名称）
+   e. 列出需要更新的文档，用户选择（全部/逐项确认/跳过）
+3. **手动模式**（指定文件 + 原因）：用户直接提供变更内容
+4. 对每个确认的文档：原地修改 raw 文件，保留 `ingested_at`、`source_type` 等原始 frontmatter 不变
+5. 找到所有 `sources` 中引用了该 raw 文件的 wiki 页面，重新综合生成
+6. 如需要，更新 `docs/README.md`
+7. 追加 `docs/log.md`（记录变更原因、摘要、来源为 manual 或 commits (range)）
+8. 向用户展示变更摘要
+9. git commit
 
-**设计动机**：虽然 raw/ 文件设计为稳定记录，但实际工作中 spec 和 plan 在实施过程中会演进。与其让文档与现实脱节，不如提供有审计追踪的正式变更通道。git history 提供完整 diff，log.md 记录变更语义（为什么改、改了什么）。`--from-commits` 模式特别适合实现阶段结束后批量同步文档，避免手动逐项描述变更。
+**设计动机**：虽然 raw/ 文件设计为稳定记录，但实际工作中 spec 和 plan 在实施过程中会演进。与其让文档与现实脱节，不如提供有审计追踪的正式变更通道。git history 提供完整 diff，log.md 记录变更语义（为什么改、改了什么）。默认的自动发现模式让 `/docs-update` 成为一个"一键同步"操作——只需在实现阶段结束后运行，skill 自动分析提交记录并找出需要更新的文档。
 
 ### Skill 4: `docs-lint`
 
