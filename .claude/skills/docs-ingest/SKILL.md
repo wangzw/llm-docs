@@ -90,6 +90,7 @@ Read `docs/README.md` to understand the current wiki structure. Then decide:
 For each wiki page created or updated:
 - Set `sources` in frontmatter to include all raw files that contributed
 - Set `last_updated` to today's date
+- Set `tags` based on the content's topics and the tags from contributing raw files
 - Use `[[wiki-links]]` for cross-references to other wiki pages
 - Use `[[raw/category/filename]]` for source references
 - Synthesize a coherent current-state view — don't just append. The wiki page should read as a standalone document reflecting the latest understanding.
