@@ -1,14 +1,14 @@
 # LLM-Docs
 
-基于 LLM 的软件工程文档管理系统。
+LLM-driven software engineering documentation management system.
 
 ## Documentation
 
-本项目使用 LLM 驱动的文档管理系统。
+This project uses an LLM-driven documentation management system.
 
-- 文档入口：docs/README.md
-- 文档约定：docs/schema.md
-- 在修改代码前，建议先通过 `/docs-query --context <file>` 了解相关设计背景
-- 在完成重要设计决策后，通过 `/docs-ingest` 将决策归档
-- Spec 文件输出到：docs/raw/specs/
-- Plan 文件输出到：docs/raw/plans/
+- Documentation entry point: docs/README.md
+- Documentation conventions: docs/schema.md
+- Before modifying code, consider running `/docs-query --context <file>` to understand design context
+- After making important design decisions, archive them with `/docs-ingest`
+- Spec files go to: docs/raw/specs/
+- Plan files go to: docs/raw/plans/

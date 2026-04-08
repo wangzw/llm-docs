@@ -1,5 +1,5 @@
 ---
-title: LLM-Docs 系统概览
+title: LLM-Docs System Overview
 sources:
   - "[[raw/specs/2026-04-08-llm-docs-design-spec]]"
   - "[[raw/plans/2026-04-08-llm-docs-skills-plan]]"
@@ -7,53 +7,53 @@ last_updated: 2026-04-08
 tags: [architecture, documentation]
 ---
 
-# LLM-Docs 系统概览
+# LLM-Docs System Overview
 
-LLM-Docs 是一套基于 LLM 驱动的软件工程文档管理系统，以 Claude Code Skills 形式交付。
+LLM-Docs is an LLM-driven software engineering documentation management system, delivered as Claude Code Skills.
 
-## 核心理念
+## Core Philosophy
 
-借鉴 Karpathy 的 LLM Wiki 模式：人负责写原始文档和做决策，LLM 负责综合、更新、一致性检查。文档不再是写完就腐烂的静态产物，而是 LLM 持续维护的活的知识库。
+Inspired by Karpathy's LLM Wiki pattern: humans write source documents and make decisions, the LLM synthesizes, updates, and checks consistency. Documentation is no longer a static artifact that rots after writing — it becomes a living knowledge base continuously maintained by the LLM.
 
-## 三层架构
+## Three-Layer Architecture
 
-- **第一层 `raw/`**：原始文档归档。按软件工程文档类型分子目录（specs、plans、architecture、adr、api、guides、prd、meeting 等）。通常写入后保持稳定，需要变更时通过 `/docs-update` 操作并留下审计记录。
-- **第二层 `wiki/`**：LLM 自主维护的当前知识库。综合提炼 raw/ 中的历史文档，反映项目的当前状态。LLM 完全控制此目录的组织结构和交叉引用。
-- **第三层 `schema.md` + `README.md`**：AI coding agent 的入口。schema.md 定义系统约定，README.md 提供 wiki 导航索引。
+- **Layer 1 `raw/`**: Source document archive. Organized by software engineering document type (specs, plans, architecture, adr, api, guides, prd, meeting, etc.). Files are generally stable after creation; changes go through `/docs-update` with an audit trail.
+- **Layer 2 `wiki/`**: LLM-maintained knowledge base. Synthesizes and distills historical documents from raw/, reflecting the current state of the project. The LLM fully controls the organization and cross-references in this directory.
+- **Layer 3 `schema.md` + `README.md`**: Entry point for AI coding agents. schema.md defines system conventions, README.md provides wiki navigation index.
 
-## 五个操作 Skill
+## Five Operation Skills
 
-| Skill | 功能 | 调用方式 |
-|-------|------|----------|
-| `/docs-init` | 初始化文档系统 | `/docs-init` |
-| `/docs-ingest` | 添加文档 → 更新 wiki | `/docs-ingest [file\|text\|url]`（无参数时自动从分支 diff 发现） |
-| `/docs-update` | 原地更新 raw 文档 + 审计 | `/docs-update [raw-file] [reason\|--from-commits]`（无参数时自动从提交记录发现） |
-| `/docs-lint` | 文档一致性 + 代码审计 | `/docs-lint [--full]`（自动检测分支/增量范围） |
-| `/docs-query` | 开发者问答 / agent 上下文注入 | `/docs-query <question\|--context file>` |
+| Skill | Function | Invocation |
+|-------|----------|------------|
+| `/docs-init` | Initialize documentation system | `/docs-init` |
+| `/docs-ingest` | Add documents and update wiki | `/docs-ingest [file\|text\|url]` (auto-discovers from branch diff when no argument) |
+| `/docs-update` | Update raw documents in-place with audit | `/docs-update [raw-file] [reason\|--from-commits]` (auto-detects from commit history when no argument) |
+| `/docs-lint` | Documentation consistency + code audit | `/docs-lint [--full]` (auto-detects branch/incremental scope) |
+| `/docs-query` | Developer Q&A / agent context injection | `/docs-query <question\|--context file>` |
 
-### 智能默认行为
+### Smart Defaults
 
-三个核心 skill 在无参数调用时均支持自动发现：
+Three core skills support auto-discovery when invoked without arguments:
 
-- **`/docs-ingest`** — `git diff main...HEAD` 找当前分支新增/修改的文档文件
-- **`/docs-update`** — 分析 git log 找出实现提交，匹配需要更新的 raw 文档
-- **`/docs-lint`** — 分支上只 lint 分支变更；main 上增量 lint（从上次 lint commit 起）
+- **`/docs-ingest`** — `git diff main...HEAD` finds new/modified documentation files on the current branch
+- **`/docs-update`** — Analyzes git log to find implementation commits and matches them to raw documents needing updates
+- **`/docs-lint`** — On a branch, lints only branch changes; on main, incrementally lints since last lint commit
 
-## 设计原则
+## Design Principles
 
-1. **可控变更** — raw/ 文件通常稳定，需要修改时通过 `/docs-update` 进行，变更经 git history 和 log.md 双重追踪
-2. **单一信息源** — wiki/ 是"当前状态"的唯一权威
-3. **最小侵入** — docs/ 是唯一新增目录
-4. **渐进式** — 冷启动即可用，随使用逐步丰富
-5. **可审计** — log.md 记录所有有副作用的操作
-6. **Obsidian 兼容** — `[[wiki-links]]`、YAML frontmatter
+1. **Controlled Mutation** — raw/ files are generally stable; changes go through `/docs-update`, tracked via git history and log.md
+2. **Single Source of Truth** — wiki/ is the sole authority for "current state"
+3. **Minimal Footprint** — docs/ is the only new directory added to the project
+4. **Progressive** — Works from cold start, enriches over time with use
+5. **Auditable** — log.md records all operations that produce side effects
+6. **Obsidian Compatible** — `[[wiki-links]]`, YAML frontmatter
 
-## 与其他 Skill 的集成
+## Integration with Other Skills
 
-brainstorming 的 spec 输出到 `docs/raw/specs/`，writing-plans 的 plan 输出到 `docs/raw/plans/`。通过在 CLAUDE.md 中配置路径覆盖实现。当这些文件被直接写入 raw/ 但 wiki 尚未同步时，`/docs-ingest` 会检测并提示用户。
+Brainstorming spec output goes to `docs/raw/specs/`, writing-plans output goes to `docs/raw/plans/`. Configured via path overrides in CLAUDE.md. When files are written directly to raw/ but wiki is not yet synced, `/docs-ingest` detects and prompts the user.
 
-## 相关文档
+## Related Documents
 
-- 完整设计规格：[[raw/specs/2026-04-08-llm-docs-design-spec]]
-- 实现计划：[[raw/plans/2026-04-08-llm-docs-skills-plan]]
-- 系统约定：[[schema]]
+- Full design specification: [[raw/specs/2026-04-08-llm-docs-design-spec]]
+- Implementation plan: [[raw/plans/2026-04-08-llm-docs-skills-plan]]
+- System conventions: [[schema]]

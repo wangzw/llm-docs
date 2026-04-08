@@ -1,49 +1,49 @@
 # Documentation Schema
 
-本文件定义 LLM-Docs 文档管理系统的架构约定，是所有 skill 和 AI coding agent 的共享基础。
+This file defines the conventions for the LLM-Docs documentation management system. It serves as the shared foundation for all skills and AI coding agents.
 
-## 目录结构
+## Directory Structure
 
 ```
 docs/
-├── README.md          # Wiki 导航索引（LLM 维护）
-├── schema.md          # 本文件：架构约定
-├── log.md             # 操作审计日志（append-only）
-├── raw/               # 第一层：不可变原始文档
-│   ├── specs/         # 设计规格
-│   ├── plans/         # 实现计划
-│   ├── architecture/  # 架构文档
-│   ├── adr/           # 架构决策记录
-│   ├── api/           # API 设计文档
-│   ├── guides/        # 操作指南、Runbook、部署文档
-│   ├── prd/           # 产品需求文档
-│   ├── meeting/       # 会议纪要、技术决策记录
-│   └── ...            # 可按需扩展
-└── wiki/              # 第二层：LLM 维护的当前知识库
-    └── ...            # LLM 自主组织
+├── README.md          # Wiki navigation index (LLM-maintained)
+├── schema.md          # This file: conventions and contracts
+├── log.md             # Operation audit log (append-only)
+├── raw/               # Layer 1: immutable source documents
+│   ├── specs/         # Design specifications
+│   ├── plans/         # Implementation plans
+│   ├── architecture/  # Architecture documents
+│   ├── adr/           # Architecture decision records
+│   ├── api/           # API design documents
+│   ├── guides/        # Runbooks, deployment guides
+│   ├── prd/           # Product requirement documents
+│   ├── meeting/       # Meeting notes, technical discussions
+│   └── ...            # Extensible as needed
+└── wiki/              # Layer 2: LLM-maintained knowledge base
+    └── ...            # LLM-organized
 ```
 
-## 文档格式规范
+## Document Format
 
-### Raw 文档 Frontmatter
+### Raw Document Frontmatter
 
 ```yaml
 ---
-title: 文档标题
+title: Document title
 source_type: file | text | url | skill
 ingested_at: YYYY-MM-DD
-source_url:              # URL 输入时记录
-skill_name:              # skill 产出时记录
+source_url:              # Recorded for URL inputs
+skill_name:              # Recorded for skill outputs
 tags: [tag1, tag2]
 immutable: true
 ---
 ```
 
-### Wiki 页面 Frontmatter
+### Wiki Page Frontmatter
 
 ```yaml
 ---
-title: 页面标题
+title: Page title
 sources:
   - "[[raw/category/filename]]"
 last_updated: YYYY-MM-DD
@@ -51,105 +51,105 @@ tags: [tag1, tag2]
 ---
 ```
 
-### 交叉引用
+### Cross-references
 
-统一使用 Obsidian 兼容的 `[[wiki-links]]` 语法：
+Use Obsidian-compatible `[[wiki-links]]` syntax throughout:
 
-- Wiki 页面之间：`[[wiki/page-name]]`
-- Wiki 引用 Raw：`[[raw/category/filename]]`
-- README.md 中的索引条目：`[[wiki/page-name]]`
+- Between wiki pages: `[[wiki/page-name]]`
+- Wiki referencing raw: `[[raw/category/filename]]`
+- README.md index entries: `[[wiki/page-name]]`
 
-### 文件命名
+### File Naming
 
-- Raw 文档：`YYYY-MM-DD-<topic>.md`（日期前缀）
-- Wiki 页面：`<topic>.md`（无日期，因为持续更新）
+- Raw documents: `YYYY-MM-DD-<topic>.md` (date-prefixed)
+- Wiki pages: `<topic>.md` (no date, continuously updated)
 
-## 分类体系
+## Classification
 
-Raw 文档按以下初始分类归入子目录，LLM 可按需提议新分类（需经用户确认）：
+Raw documents are filed into subdirectories by type. The LLM may propose new categories (with user confirmation):
 
-| 分类 | 目录 | 内容 |
-|------|------|------|
-| 设计规格 | `specs/` | 功能设计、brainstorming 产出 |
-| 实现计划 | `plans/` | 实现步骤、writing-plans 产出 |
-| 架构 | `architecture/` | 系统架构、技术选型 |
-| 架构决策 | `adr/` | 单个技术决策的背景、选项、结论 |
-| API | `api/` | 接口设计、协议定义 |
-| 操作指南 | `guides/` | 部署、运维、Runbook |
-| 产品需求 | `prd/` | PRD、BRD、用户故事 |
-| 会议纪要 | `meeting/` | 会议结论、技术讨论记录 |
+| Category | Directory | Content |
+|----------|-----------|---------|
+| Design Specs | `specs/` | Feature designs, brainstorming outputs |
+| Implementation Plans | `plans/` | Implementation steps, writing-plans outputs |
+| Architecture | `architecture/` | System architecture, technology choices |
+| Architecture Decisions | `adr/` | Background, options, and conclusions for individual decisions |
+| API | `api/` | Interface design, protocol definitions |
+| Guides | `guides/` | Deployment, operations, runbooks |
+| Product Requirements | `prd/` | PRDs, BRDs, user stories |
+| Meeting Notes | `meeting/` | Meeting conclusions, technical discussion records |
 
-分类规则：ingest 时由 LLM 根据内容语义自动决定。当内容不属于任何现有分类时，LLM 向用户提议创建新分类目录。
+Classification rule: the LLM automatically classifies during ingest based on content semantics. When content does not fit any existing category, the LLM proposes a new subdirectory to the user.
 
-## 操作契约
+## Operation Contracts
 
 ### ingest
 
-- **输入**：无参数（自动从 `git diff main...HEAD` 发现待归档文件）/ 文件路径 / 自由文本 / URL
-- **输出**：raw/ 中的新文件 + wiki/ 的更新 + README.md 更新 + log.md 记录
-- **不变量**：raw/ 中的文件一旦写入不可修改（update 操作除外）
+- **Input**: No argument (auto-discover via `git diff main...HEAD`) / file path / free text / URL
+- **Output**: New file in raw/ + wiki update + README.md update + log.md entry
+- **Invariant**: Files in raw/ are not modified after creation (except via the update operation)
 
 ### update
 
-- **输入**：无参数（自动从 git log 匹配需更新的 raw 文档）/ `--from-commits [range]` / raw/ 文件路径 + 变更原因
-- **输出**：raw/ 文件原地更新 + wiki/ 同步 + log.md 记录
-- **约束**：仅通过 `/docs-update` skill 修改 raw/ 文件，变更通过 git history 追踪
+- **Input**: No argument (auto-detect from git log) / `--from-commits [range]` / raw file path + reason
+- **Output**: In-place raw file update + wiki sync + log.md entry
+- **Constraint**: Raw files may only be modified via `/docs-update`; changes are tracked via git history
 
 ### lint
 
-- **输入**：无参数（自动检测范围）/ `--full`（强制全量）
-- **范围检测**：分支模式（`git diff main...HEAD`）/ 增量模式（main 上从上次 lint commit 起）/ 全量模式
-- **输出**：lint 报告（错误/警告/通过） + 可选自动修复
-- **范围**：文档间一致性 + 文档与代码的深度对照
+- **Input**: No argument (auto-detect scope) / `--full` (force full lint)
+- **Scope detection**: Branch mode (`git diff main...HEAD`) / incremental mode (main, since last lint commit) / full mode
+- **Output**: Lint report (errors/warnings/passes) + optional auto-fix
+- **Scope**: Internal doc consistency + documentation-code deep audit
 
 ### query
 
-- **开发者模式输入**：自然语言问题
-- **开发者模式输出**：回答 + 引用来源 + 可选回写
-- **Agent 模式输入**：`--context <file/dir>`
-- **Agent 模式输出**：结构化上下文摘要（设计意图、约束、决策、注意事项）
+- **Developer mode input**: Natural language question
+- **Developer mode output**: Answer + source citations + optional write-back
+- **Agent mode input**: `--context <file/dir>`
+- **Agent mode output**: Structured context summary (design intent, constraints, decisions, cautions)
 
-## 日志格式
+## Log Format
 
-`log.md` 仅记录产生文件变更的操作：
+`log.md` only records operations that produce file changes:
 
 ```markdown
-## [YYYY-MM-DD] ingest | 文档标题
-- source: file | text | url | skill (来源描述)
-- raw: raw/category/filename.md
-- wiki updated: wiki/page.md (created | updated)
-- index updated: 变更描述
+## [YYYY-MM-DD] ingest | <document title>
+- source: file | text | url | skill (<source description>)
+- raw: raw/<category>/<filename>.md
+- wiki updated: wiki/<page>.md (created | updated)
+- index updated: <description of changes>
 
 ## [YYYY-MM-DD] lint
-- scope: branch (branch-name vs main) | incremental (last..current) | full
+- scope: branch (<branch-name> vs main) | incremental (<last>..<current>) | full
 - commit: <short hash>
 - checked: N wiki pages, M source files
-- issues: N (问题摘要)
-- fixed: 修复描述
+- issues: N (<summary>)
+- fixed: <description of fixes>
 
-## [YYYY-MM-DD] query | 回写标题
-- question: 原始问题
-- raw: raw/category/filename.md
-- wiki updated: wiki/page.md (created | updated)
+## [YYYY-MM-DD] query | <topic title>
+- question: <original question>
+- raw: raw/<category>/<filename>.md
+- wiki updated: wiki/<page>.md (created | updated)
 
-## [YYYY-MM-DD] update | 文档标题
-- raw: raw/category/filename.md
-- source: manual | commits (range)
-- reason: 变更原因
-- changes: 变更摘要
-- wiki updated: wiki/page.md (updated)
+## [YYYY-MM-DD] update | <document title>
+- raw: raw/<category>/<filename>.md
+- source: manual | commits (<range>)
+- reason: <why the update was needed>
+- changes: <brief summary>
+- wiki updated: wiki/<page>.md (updated)
 ```
 
-## 演进规则
+## Evolution Rules
 
-本文件（schema.md）可以被 LLM 演进。允许的变更：
+This file (schema.md) may be evolved by the LLM. Allowed changes:
 
-- 新增分类目录（需用户确认）
-- 调整 wiki 组织建议
-- 补充格式规范
+- Add new classification directories (with user confirmation)
+- Adjust wiki organization suggestions
+- Add format conventions
 
-不允许的变更：
+Disallowed changes:
 
-- 删除已有分类目录
-- 修改 raw/ 的不可变性约定
-- 修改 log.md 的 append-only 约定
+- Remove existing classification directories
+- Modify the immutability convention for raw/
+- Modify the append-only convention for log.md
