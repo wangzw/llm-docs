@@ -40,3 +40,9 @@
 - checked: 1 wiki pages, 1 skill file
 - issues: 1 warning (language inconsistency between docs-init English template and Chinese project files)
 - fixed: Converted schema.md, README.md, wiki/llm-docs-overview.md, CLAUDE.md, log.md to English
+
+## [2026-04-09] ingest | Blog: From Karpathy's LLM Wiki to Software Documentation
+- source: file (docs/raw/guides/2026-04-09-llm-docs-blog.md)
+- raw: raw/guides/2026-04-09-llm-docs-blog.md
+- wiki updated: wiki/design-philosophy.md (created)
+- index updated: added design-philosophy entry under Architecture

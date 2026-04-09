@@ -54,6 +54,7 @@ Brainstorming spec output goes to `docs/raw/specs/`, writing-plans output goes t
 
 ## Related Documents
 
+- Design philosophy and Karpathy connection: [[wiki/design-philosophy]]
 - Full design specification: [[raw/specs/2026-04-08-llm-docs-design-spec]]
 - Implementation plan: [[raw/plans/2026-04-08-llm-docs-skills-plan]]
 - System conventions: [[schema]]

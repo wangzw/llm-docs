@@ -5,6 +5,7 @@ This project uses an LLM-driven documentation management system. See [[schema]] 
 ## Architecture
 
 - [[wiki/llm-docs-overview]] — LLM-Docs system overview: three-layer architecture and five operation skills
+- [[wiki/design-philosophy]] — Design philosophy: from Karpathy's LLM Wiki pattern to software documentation management
 
 ## Raw Documents
 
