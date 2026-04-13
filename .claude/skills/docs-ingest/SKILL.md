@@ -1,9 +1,9 @@
 ---
 name: docs-ingest
-description: Add a new document to the LLM-Docs system. Supports file paths, free text, and URLs. Classifies the document, archives it to docs/raw/, updates the wiki and index. Use when recording design decisions, importing existing docs, or archiving meeting notes.
+description: Add a new document to the LLM-Docs system. Supports file paths, directory paths, free text, and URLs. Classifies the document, archives it to docs/raw/, updates the wiki and index. Use when recording design decisions, importing existing docs, or archiving meeting notes.
 allowed-tools: Read Write Edit Bash Glob Grep WebFetch
 user-invocable: true
-argument-hint: [file-path | "free text" | https://url]
+argument-hint: [file-path | dir-path | "free text" | https://url]
 ---
 
 # docs-ingest: Add Document to Documentation System
@@ -18,13 +18,21 @@ The argument `$ARGUMENTS` determines the input type:
 2. **File path** — argument is a path to an existing file (check with Glob/Read)
    - Read the file content
    - `source_type: file`
-3. **URL** — argument starts with `http://` or `https://`
+3. **Directory path** — argument is a path to an existing directory (check with `ls -la` or Glob)
+   - Enumerate documents within the directory and process as a batch
+   - `source_type: dir`
+   - See **Directory Mode** below
+4. **URL** — argument starts with `http://` or `https://`
    - Fetch content via WebFetch
    - `source_type: url`
    - Record the URL in `source_url` frontmatter field
-4. **Free text** — argument is quoted text or anything that is not a file path or URL
+5. **Free text** — argument is quoted text or anything that is not a file/dir path or URL
    - Use the text directly as content
    - `source_type: text`
+
+To distinguish file vs. directory, run `test -d <path>` or check with `ls`. Do NOT assume — the user may pass either.
+
+**In-place paths**: if the resolved file or directory path is already under `docs/raw/`, those files are treated as already-archived raw records — do not copy them, rewrite them, or add frontmatter. See **Step 3.0** for how this affects the workflow.
 
 ### Auto-discover Mode
 
@@ -47,6 +55,80 @@ When no argument is provided:
 6. For each confirmed file, proceed with the normal ingest workflow (Step 2 onwards)
 7. If no candidates are found, tell the user and ask if they want to provide input manually
 
+### Directory Mode
+
+When the argument is a directory path, treat it as a **batch ingest** — multiple related documents belonging to one coherent topic.
+
+#### D1. Enumerate documents
+
+Use Glob to list document files in the directory (recursively):
+
+- Primary patterns: `**/*.md`, `**/*.markdown`, `**/*.txt`, `**/*.rst`
+- Exclude: hidden files (`.*`), binaries, lock files, anything under `node_modules/`, `.git/`, `dist/`, `build/`
+- If the directory is empty of documents, tell the user and stop
+
+Show the user the discovered file list and ask for confirmation before proceeding. Offer to exclude specific files.
+
+#### D2. Detect the index file
+
+Look for an index/entry file that describes the directory as a whole. Check in this priority order:
+
+1. `README.md` / `README` / `readme.md`
+2. `index.md` / `INDEX.md`
+3. `SUMMARY.md` (common in mdBook/GitBook structures)
+4. `TOC.md` / `_toc.md`
+5. `<dirname>.md` (e.g. `architecture.md` inside a directory named `architecture/`)
+
+If found, the index file serves two purposes:
+- **Classification hint**: its title and content strongly influence the category choice for the whole batch
+- **Wiki scaffolding**: its structure (headings, links) informs how the resulting wiki page(s) are organized
+
+If no index file is detected, synthesize one from the content of all documents to structure the wiki page.
+
+#### D3. Classify as a batch
+
+The entire directory typically maps to **one category** under `docs/raw/`. Use the index file (if present) plus a sampling of the other files to classify.
+
+If documents in the directory clearly span multiple categories (rare — usually signals the user passed the wrong root directory), ask the user whether to:
+- (a) ingest everything under one category anyway, or
+- (b) split into multiple categories per file, or
+- (c) abort and have the user point to a more specific subdirectory
+
+#### D4. Archive each file individually
+
+Each source file becomes its own raw record under `docs/raw/<category>/`. This preserves provenance — consumers can still trace any claim to a specific source document.
+
+For each file:
+- Filename: `YYYY-MM-DD-<dir-slug>--<file-slug>.md` (double dash separates directory context from file identity)
+- Frontmatter `source_type: dir`
+- Add `source_path: <original/relative/path>` field to record the file's location within the input directory
+- Add `batch_id: <dir-slug>-YYYY-MM-DD` so all files from one ingest are linkable
+- If the file is the detected index, add `index: true`
+- Body = original content, unmodified
+
+#### D5. Wiki strategy for directory input
+
+Unlike single-file ingest, a directory typically produces **one cohesive wiki page** (or a small cluster) that synthesizes across all raw files:
+
+- If an index file exists, use its structure as the skeleton for the wiki page
+- Treat other files as sections, subsystems, or supporting details
+- The wiki page's `sources` frontmatter lists ALL raw files from the batch
+- Cross-reference raw files with `[[raw/<category>/<filename>]]` so readers can drill into any specific source
+
+For large directories (10+ files spanning distinct sub-topics), consider creating an index wiki page plus one sub-page per major topic. Ask the user before fanning out this way.
+
+#### D6. Then continue with the normal workflow
+
+After the batch-specific steps above, resume at Step 4 (Check for Unprocessed Raw Files), then Step 5 onwards. The log entry (Step 7) should summarize the batch rather than list every file:
+
+```markdown
+## [YYYY-MM-DD] ingest | <batch title> (directory, N files)
+- source: dir (<original/path>)
+- raw: raw/<category>/YYYY-MM-DD-<dir-slug>--*.md (N files, batch_id: <...>)
+- wiki updated: wiki/<page>.md (<created | updated>)
+- index updated: <description of README.md changes>
+```
+
 ## Workflow
 
 ### Step 1: Load Schema
@@ -66,6 +148,29 @@ Analyze the input content:
 
 ### Step 3: Archive to Raw
 
+#### Step 3.0: Decide whether to archive
+
+Before writing anything, check where the input lives:
+
+1. **Input path is already under `docs/raw/`** (file or directory) — DO NOT create new archive files and DO NOT modify the originals. They are already raw records. Skip the rest of Step 3 entirely. In subsequent steps (wiki update, log), reference the existing files by their current path. Rationale: `docs/raw/` is immutable and already the canonical archive location; re-archiving would duplicate and break provenance.
+
+2. **Input path is OUTSIDE `docs/raw/`** (or input is text/URL/dir that isn't under `docs/raw/`) — ask the user before archiving:
+
+   > "即将把以下内容归档到 `docs/raw/<category>/` 并添加 frontmatter：
+   > - <file 1 / batch summary>
+   > - ...
+   > 是否继续？(archive / wiki-only / cancel)"
+
+   - `archive` (default): proceed with Step 3.1 below — copy content into `docs/raw/` and add frontmatter
+   - `wiki-only`: skip archiving; reference the original path in wiki `sources` instead of a `raw/` path, and skip the log's `raw:` field
+   - `cancel`: abort the whole workflow
+
+3. **Input is text / URL / skill output** — these have no on-disk source under `docs/raw/`, so archiving is always required. Still confirm with the user if it's not obvious from context (e.g. free text paste).
+
+Only proceed to Step 3.1 if the user chose `archive`, or if this is a text/URL/skill input.
+
+#### Step 3.1: Write the raw file(s)
+
 Write the content to `docs/raw/<category>/YYYY-MM-DD-<topic>.md` where:
 - `YYYY-MM-DD` is today's date
 - `<topic>` is a kebab-case slug derived from the title
@@ -76,9 +181,12 @@ Frontmatter:
 ```yaml
 ---
 title: <extracted title>
-source_type: file | text | url | skill
+source_type: file | dir | text | url | skill
 ingested_at: YYYY-MM-DD
 source_url: <if URL input>
+source_path: <if dir input — original relative path within input directory>
+batch_id: <if dir input — shared id for all files in the batch>
+index: <if dir input and this file is the detected index — true>
 skill_name: <if skill output>
 tags: [tag1, tag2]
 immutable: true
@@ -86,6 +194,8 @@ immutable: true
 ```
 
 The body is the original content, unmodified.
+
+For directory input, see **Directory Mode → D4** above for filename convention and batch frontmatter fields.
 
 ### Step 4: Check for Unprocessed Raw Files
 

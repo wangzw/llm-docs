@@ -1,9 +1,9 @@
 ---
 name: docs-update
-description: Update an existing raw/ document in-place with audit logging. Use when a spec, plan, or other raw document needs correction or evolution during implementation. Propagates changes to wiki and logs the mutation for traceability.
+description: Update an existing raw/ document (or a batch under a raw/ directory) in-place with audit logging. Use when a spec, plan, or other raw document needs correction or evolution during implementation. Propagates changes to wiki and logs the mutation for traceability.
 allowed-tools: Read Write Edit Bash Glob Grep
 user-invocable: true
-argument-hint: [raw-file-path] [reason | --from-commits [range]]
+argument-hint: [raw-file-path | raw-dir-path] [reason | --from-commits [range]]
 ---
 
 # docs-update: Update Raw Document
@@ -18,15 +18,20 @@ Parse `$ARGUMENTS`:
    - Example: `/docs-update`
 2. **`--from-commits` [range] only** — same as above but with an explicit commit range
    - Example: `/docs-update --from-commits HEAD~10..HEAD`
-3. **File path + `--from-commits` [range]** — update a specific raw file based on git commit history
-   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md --from-commits`
-   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md --from-commits abc123..def456`
-4. **File path + reason** — update a specific raw file with a manually described reason
-   - Example: `/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"`
-5. **File path only** — path to a `docs/raw/` file, no reason provided
+3. **Path + `--from-commits` [range]** — update a specific raw file OR all raw files under a raw directory based on git commit history
+   - File example: `/docs-update docs/raw/specs/2026-04-08-design.md --from-commits`
+   - Directory example: `/docs-update docs/raw/specs/ --from-commits abc123..def456`
+4. **Path + reason** — update a specific raw file or directory with a manually described reason
+   - File example: `/docs-update docs/raw/specs/2026-04-08-design.md "add error handling section"`
+   - Directory example: `/docs-update docs/raw/guides/gpt-oss/ "align with new naming convention"`
+5. **Path only** — path to a `docs/raw/` file or directory, no reason provided
    - Ask the user for the reason before proceeding
 
-If a file path is provided, validate that it exists and is under `docs/raw/`. If not, stop with an error.
+**Path validation**: if a path is provided, use `test -d` / `test -f` to distinguish file vs. directory. Validate it exists and is under `docs/raw/`. If not under `docs/raw/`, stop with an error — this skill only updates raw records in place (to ingest new content, use `/docs-ingest` instead).
+
+**Directory input expansion**: when the path is a directory, enumerate all raw document files under it (recursively) via Glob (`<dir>/**/*.md`, etc.). The resulting file set is the update target group — all subsequent steps operate on this group. If the directory contains no raw files, stop with an error. Show the user the enumerated list and let them exclude specific files before proceeding.
+
+**Batch coherence**: when multiple files are targeted (via directory input or auto-detect selecting several), treat them as a batch — one reason typically applies to all of them, wiki re-synthesis happens once after all raw edits, and the log records a single batch update entry (see Step 6).
 
 ## Workflow
 
@@ -79,36 +84,41 @@ Proceed to Step 3 with user-confirmed documents and their synthesized changes. F
 
 ### Step 2-alt: Manual Mode
 
-If a file path was provided without `--from-commits` and without a reason:
+If a path was provided without `--from-commits` and without a reason:
 
-1. Read the target raw file in full
-2. Read `docs/README.md` to find wiki pages that reference this raw file
+1. Read the target raw file(s) in full. For directory input, read every enumerated file.
+2. Read `docs/README.md` to find wiki pages that reference any of the target raw files (union set)
 3. Read those wiki pages to understand the current synthesized state
 4. Ask the user:
-   - What changes are needed?
+   - What changes are needed? (If directory input and changes differ per file, ask per file; if changes are uniform across the batch, ask once)
    - Why? (bug found, scope change, implementation feedback, etc.)
 
-### Step 3: Update the Raw File
+### Step 3: Update the Raw File(s)
 
-Apply the requested changes to the raw document. Preserve the existing frontmatter, but:
+Apply the requested changes to each target raw document. Preserve existing frontmatter, but:
 
 - Update `tags` if the changes affect the document's topics
 - Do NOT change `ingested_at` — it records when the document was first created
 - Do NOT change `source_type` — it records how the document originally entered the system
+- Do NOT change `batch_id` if present — it preserves the grouping from the original directory ingest
 
 The `immutable: true` field may still be present in legacy files — leave it as-is (it is no longer enforced for updates via this skill).
 
+For batch updates (directory input or multiple files selected), apply edits to all files before moving on to wiki propagation — wiki re-synthesis should see the final state of every changed raw file.
+
 ### Step 4: Propagate to Wiki
 
-Find all wiki pages whose `sources` frontmatter references the updated raw file.
+Collect the set of wiki pages whose `sources` frontmatter references ANY of the updated raw files (union across the batch).
 
 For each affected wiki page:
 
 1. Read the wiki page
-2. Re-read ALL raw files listed in that wiki page's `sources` (not just the updated one)
+2. Re-read ALL raw files listed in that wiki page's `sources` (not just the updated ones — neighbors may still contribute)
 3. Re-synthesize the wiki page to reflect the updated information
 4. Set `last_updated` to today's date
 5. Update `tags` if topics changed
+
+If a single wiki page is affected by multiple updated raw files in the batch, re-synthesize it once after all raw edits, not once per file.
 
 If the update introduces a topic not covered by any existing wiki page, create a new one and add it to `docs/README.md`.
 
@@ -118,7 +128,7 @@ If any wiki page descriptions changed or new wiki pages were created, update `do
 
 ### Step 6: Append to Log
 
-Append an entry to `docs/log.md`:
+For a single-file update, append:
 
 ```markdown
 ## [YYYY-MM-DD] update | <document title>
@@ -129,11 +139,23 @@ Append an entry to `docs/log.md`:
 - wiki updated: wiki/<page>.md (updated) [, wiki/<page2>.md (updated)]
 ```
 
+For a batch update (directory input or multiple files), append a single entry that summarizes the batch:
+
+```markdown
+## [YYYY-MM-DD] update | <batch title> (N files)
+- raw: raw/<category>/ (N files: <list file basenames, or "see scope" if many>)
+- scope: <path/to/dir-or-glob-used>
+- source: <manual | commits (range)>
+- reason: <why the update was needed>
+- changes: <brief summary; note per-file variations if significant>
+- wiki updated: wiki/<page>.md (updated) [, wiki/<page2>.md (updated)]
+```
+
 When `--from-commits` was used, `source` should record the commit range, e.g. `commits (abc123..def456)` or `commits (since 2026-04-01)`.
 
 ### Step 7: Present Summary
 
-Show the user:
+For single-file:
 
 > **Update 完成**
 > - 更新文档：`docs/raw/<category>/<filename>.md`
@@ -141,10 +163,24 @@ Show the user:
 > - 变更摘要：<brief changes>
 > - Wiki 同步：`docs/wiki/<page>.md` (updated)
 
+For batch:
+
+> **Batch update 完成**
+> - 更新范围：`<dir path>` (N files)
+> - 原因：<reason>
+> - 变更摘要：<brief summary>
+> - Wiki 同步：<list of updated wiki pages>
+
 ### Step 8: Commit
 
 Stage all changed files under `docs/`. Create a git commit:
 
 ```
 docs: update <document title> — <reason>
+```
+
+For batch updates:
+
+```
+docs: update <batch title> (N files) — <reason>
 ```
