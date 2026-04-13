@@ -21,7 +21,10 @@ Run:
 
 ```bash
 mkdir -p docs/raw/{specs,plans,architecture,adr,api,guides,prd,meeting} docs/wiki
+touch docs/raw/{specs,plans,architecture,adr,api,guides,prd,meeting}/.gitkeep docs/wiki/.gitkeep
 ```
+
+The `.gitkeep` files ensure git tracks the empty subdirectories. Remove them once a directory has real content.
 
 ## Step 2: Generate docs/schema.md
 
