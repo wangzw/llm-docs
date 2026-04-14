@@ -47,10 +47,10 @@ When no argument is provided:
 4. Cross-reference with `docs/log.md` — exclude files that have already been ingested (matching by file path in `source` field)
 5. If candidates are found, present them to the user:
 
-> "发现以下文件可能需要归档：
-> 1. `path/to/new-spec.md` — (new) 看起来是设计规格
-> 2. `path/to/updated-plan.md` — (modified) 看起来是实现计划
-> 选择要 ingest 的文件（全部/逐项确认/跳过）："
+> "Found the following files that may need archiving:
+> 1. `path/to/new-spec.md` — (new) appears to be a design spec
+> 2. `path/to/updated-plan.md` — (modified) appears to be an implementation plan
+> Select files to ingest (all / confirm each / skip):"
 
 6. For each confirmed file, proceed with the normal ingest workflow (Step 2 onwards)
 7. If no candidates are found, tell the user and ask if they want to provide input manually
@@ -156,10 +156,10 @@ Before writing anything, check where the input lives:
 
 2. **Input path is OUTSIDE `docs/raw/`** (or input is text/URL/dir that isn't under `docs/raw/`) — ask the user before archiving:
 
-   > "即将把以下内容归档到 `docs/raw/<category>/` 并添加 frontmatter：
+   > "About to archive the following content to `docs/raw/<category>/` with frontmatter:
    > - <file 1 / batch summary>
    > - ...
-   > 是否继续？(archive / wiki-only / cancel)"
+   > Proceed? (archive / wiki-only / cancel)"
 
    - `archive` (default): proceed with Step 3.1 below — copy content into `docs/raw/` and add frontmatter
    - `wiki-only`: skip archiving; reference the original path in wiki `sources` instead of a `raw/` path, and skip the log's `raw:` field
@@ -203,10 +203,10 @@ Scan `docs/raw/` for files that exist but have no corresponding entry in `docs/l
 
 If found, ask the user:
 
-> "发现 N 个未处理的原始文档：
+> "Found N unprocessed raw documents:
 > - docs/raw/specs/2026-04-08-example.md
 > - ...
-> 是否一并更新 wiki？"
+> Update wiki for these as well?"
 
 If yes, include them in the wiki update step below.
 
@@ -248,17 +248,33 @@ Append an entry to `docs/log.md`:
 - index updated: <description of README.md changes>
 ```
 
-### Step 8: Present Summary
+### Step 8: Update Search Index
+
+If qmd is available (`command -v qmd`), refresh the search index so new pages are immediately searchable:
+
+```bash
+qmd update && qmd embed
+```
+
+If the wiki collection doesn't exist yet, create it first:
+
+```bash
+qmd collection add docs/wiki/
+```
+
+This step is silent — no output needed unless it fails.
+
+### Step 9: Present Summary
 
 Show the user a concise summary:
 
-> **Ingest 完成**
-> - 原始文档：`docs/raw/<category>/<filename>.md`
-> - 分类：<category>
-> - Wiki 更新：`docs/wiki/<page>.md` (created/updated)
-> - 索引更新：已添加/更新 README.md 条目
+> **Ingest complete**
+> - Raw document: `docs/raw/<category>/<filename>.md`
+> - Classification: <category>
+> - Wiki updated: `docs/wiki/<page>.md` (created/updated)
+> - Index updated: added/updated README.md entry
 
-### Step 9: Commit
+### Step 10: Commit
 
 Stage all changed files under `docs/`. Create a git commit:
 

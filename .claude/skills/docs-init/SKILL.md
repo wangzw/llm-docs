@@ -243,7 +243,19 @@ If yes, create `docs/.obsidian/app.json` with:
 
 If no, skip.
 
-## Step 7: Interactive Import (Optional)
+## Step 7: qmd Setup (Optional)
+
+If qmd is installed (`command -v qmd`), create a search collection for the wiki:
+
+```bash
+qmd collection add docs/wiki/
+```
+
+This enables hybrid search (BM25 + vector + LLM re-ranking) for `/docs-query`. The collection will be updated incrementally by `/docs-ingest` and `/docs-update`.
+
+If qmd is not installed, skip this step silently.
+
+## Step 8: Interactive Import (Optional)
 
 Ask the user:
 
@@ -262,7 +274,7 @@ If yes:
    f. Append to log.md
 5. Present a summary of all imported documents
 
-## Step 8: Commit
+## Step 9: Commit
 
 Stage all new files under `docs/` and changes to `CLAUDE.md`. Create a git commit:
 

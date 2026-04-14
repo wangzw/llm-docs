@@ -68,17 +68,17 @@ For each raw document with matched commits, assess whether the commits introduce
 
 If no file path was provided, present the full list to the user:
 
-> "根据提交记录分析，以下文档需要更新：
+> "Based on commit history analysis, the following documents need updating:
 > 1. `docs/raw/specs/2026-04-08-design.md` — <reason summary>
 > 2. `docs/raw/plans/2026-04-08-impl.md` — <reason summary>
-> 选择要更新的文档编号（全部/逐项确认/跳过）："
+> Select documents to update (all / confirm each / skip):"
 
 If a specific file path was provided, only show the analysis for that file:
 
-> "根据提交记录分析，以下内容需要更新：
+> "Based on commit history analysis, the following changes are needed:
 > - <change 1>
 > - <change 2>
-> 是否继续？"
+> Proceed?"
 
 Proceed to Step 3 with user-confirmed documents and their synthesized changes. For each confirmed document, read it in full and read its associated wiki pages before updating.
 
@@ -153,25 +153,35 @@ For a batch update (directory input or multiple files), append a single entry th
 
 When `--from-commits` was used, `source` should record the commit range, e.g. `commits (abc123..def456)` or `commits (since 2026-04-01)`.
 
-### Step 7: Present Summary
+### Step 7: Update Search Index
+
+If qmd is available (`command -v qmd`), refresh the search index so updated pages are immediately searchable:
+
+```bash
+qmd update && qmd embed
+```
+
+This step is silent — no output needed unless it fails.
+
+### Step 8: Present Summary
 
 For single-file:
 
-> **Update 完成**
-> - 更新文档：`docs/raw/<category>/<filename>.md`
-> - 原因：<reason>
-> - 变更摘要：<brief changes>
-> - Wiki 同步：`docs/wiki/<page>.md` (updated)
+> **Update complete**
+> - Updated document: `docs/raw/<category>/<filename>.md`
+> - Reason: <reason>
+> - Changes summary: <brief changes>
+> - Wiki synced: `docs/wiki/<page>.md` (updated)
 
 For batch:
 
-> **Batch update 完成**
-> - 更新范围：`<dir path>` (N files)
-> - 原因：<reason>
-> - 变更摘要：<brief summary>
-> - Wiki 同步：<list of updated wiki pages>
+> **Batch update complete**
+> - Update scope: `<dir path>` (N files)
+> - Reason: <reason>
+> - Changes summary: <brief summary>
+> - Wiki synced: <list of updated wiki pages>
 
-### Step 8: Commit
+### Step 9: Commit
 
 Stage all changed files under `docs/`. Create a git commit:
 

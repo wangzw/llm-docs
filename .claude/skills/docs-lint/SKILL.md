@@ -173,12 +173,12 @@ Present a structured lint report:
 
 After presenting the report, ask the user:
 
-> "是否自动修复？我可以：
-> - 更新 wiki 页面以匹配代码实际行为
-> - 移除断裂的链接
-> - 将孤立页面添加到 README.md
+> "Auto-fix? I can:
+> - Update wiki pages to match actual code behavior
+> - Remove broken links
+> - Add orphan pages to README.md
 >
-> 选择：全部修复 / 逐项确认 / 跳过"
+> Choose: fix all / confirm each / skip"
 
 If the user chooses to fix:
 1. Apply fixes to wiki pages (update content to match code, fix broken links, add orphans to README.md)
@@ -197,7 +197,13 @@ If the user chooses to fix:
 
 The `commit` field is always written — it serves as the checkpoint for the next incremental lint on main.
 
-5. Commit:
+5. Update search index: if qmd is available (`command -v qmd`), refresh the index:
+
+```bash
+qmd update && qmd embed
+```
+
+6. Commit:
 
 ```
 docs: lint fix — update wiki to match codebase

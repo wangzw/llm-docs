@@ -1,7 +1,7 @@
 ---
 name: docs-query
 description: Query the LLM-Docs documentation system. Two modes — developer mode (default) for natural language Q&A with source citations, and agent mode (--context) for injecting relevant design context into AI coding workflows. Use when you need to understand design decisions, architecture, or constraints before modifying code.
-allowed-tools: Read Glob Grep WebFetch
+allowed-tools: Read Bash Glob Grep WebFetch
 user-invocable: true
 argument-hint: <"question" | --context file/dir>
 ---
@@ -29,9 +29,33 @@ Parse `$ARGUMENTS`:
 
 ### Step 1: Locate Relevant Pages
 
+Use a two-tier search strategy:
+
+#### Tier 1: qmd (if available)
+
+Check if qmd is installed:
+
+```bash
+command -v qmd
+```
+
+If available, use it for hybrid search:
+
+```bash
+qmd search "<query>" docs/wiki/
+```
+
+This provides BM25 + vector + LLM re-ranking results. Use the returned pages as the primary relevance signal.
+
+#### Tier 2: Fallback (grep + index)
+
+If qmd is not available, use built-in tools:
+
 1. Read `docs/README.md` to get the wiki index
 2. Based on the question's keywords and semantics, identify which wiki pages are likely relevant
-3. Read those wiki pages
+3. Use Grep to search for key terms across `docs/wiki/` files
+
+Read the top relevant wiki pages found via either tier.
 
 ### Step 2: Deep Dive if Needed
 
@@ -54,7 +78,7 @@ Compose an answer that:
 
 After presenting the answer, ask:
 
-> "这个回答是否值得写入文档？"
+> "Is this answer worth writing back to the documentation?"
 
 If yes:
 1. Structure the answer as a proper document
@@ -90,11 +114,26 @@ Read the file(s) or directory specified by `--context`:
 
 ### Step 2: Find Relevant Documentation
 
+#### Tier 1: qmd (if available)
+
+If qmd is installed (`command -v qmd`), use it to search for documentation related to the code context:
+
+```bash
+qmd search "<key concepts from the code>" docs/wiki/
+```
+
+#### Tier 2: Fallback (grep + index)
+
+If qmd is not available:
+
 1. Read `docs/README.md` to get the wiki index
 2. Based on the code context, identify relevant wiki pages by matching:
    - Module/component names
    - Tags overlap
    - Concept references
+
+Then for either tier:
+
 3. Read the matched wiki pages
 4. If needed, read referenced raw documents for deeper context (especially ADRs and architecture docs)
 
