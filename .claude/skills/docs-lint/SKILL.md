@@ -14,6 +14,16 @@ Check the documentation system for internal consistency and audit documentation 
 
 Read `docs/schema.md`. If it does not exist, tell the user to run `/docs-init` first and stop.
 
+## Guiding Principle: Wiki Organization is Lazy, Not Upfront
+
+Karpathy's LLM Wiki Pattern derives structure from **cross-references** (`[[wiki-links]]`), not from directory hierarchy. This has direct consequences for what this skill should and should not flag:
+
+- **Flat `docs/wiki/` is the default healthy state**, regardless of page count. Do NOT flag a flat wiki as an organizational issue just because `docs/raw/` has subdirectories. `raw/` is classified by document *type* (spec/plan/adr/...) — a software-engineering axis; `wiki/` is organized by *topic*, and topics emerge from the corpus rather than being imposed upfront.
+- **Subdirectories in `wiki/` are a lazy decision** — introduced only when the flat structure genuinely impairs navigation AND clear topical clusters have emerged. Never mirror `raw/`'s type-based categorization in `wiki/`.
+- **Mimicry is the anti-pattern**, not flatness. A wiki with 50 flat pages cross-linked via `[[wiki-links]]` is healthier than a wiki with 10 pages split across 5 thinly-populated subdirectories.
+
+This principle governs check 1e below and should inform any auto-fix suggestions about wiki organization.
+
 ## Scope Detection
 
 Determine the lint scope based on the current branch:
@@ -75,6 +85,20 @@ If `$ARGUMENTS` contains `--full`, always perform a full lint regardless of bran
 2. Identify pages that cover overlapping topics (based on tags and content).
 3. For overlapping pages, check whether they make contradictory claims about the same concept.
 4. Report contradictions as 🔴 errors with specific quotes from both pages.
+
+#### 1e. Wiki Organization Check
+
+Applies the guiding principle above. Flag two anti-patterns:
+
+1. **Premature categorization**: `docs/wiki/` contains subdirectories where any subdirectory has fewer than 3 pages. The hierarchy was imposed upfront rather than emerging from a growing corpus.
+   - Report as 🟡 warning: "wiki/ subdirectory `<dir>` contains only N page(s) — flat wiki with `[[wiki-links]]` is preferred until topical clusters clearly emerge"
+   - Auto-fix suggestion: flatten (move pages to wiki/ root, remove empty dirs, update links)
+
+2. **Overgrown flat wiki without cross-references**: `docs/wiki/` has many pages (roughly 20+) at the top level AND the pages lack `[[wiki-links]]` between each other. The knowledge is flat but also disconnected — no compounding synthesis.
+   - Report as 🟡 warning: "wiki/ has N pages with sparse cross-references — consider adding `[[wiki-links]]` between related pages, or grouping into topical subdirectories if clear clusters exist"
+   - Note: a flat wiki with rich cross-references is NOT a warning, regardless of page count.
+
+A flat `docs/wiki/` that does not trigger either condition above is healthy — do not suggest reorganization.
 
 ### Phase 2: Documentation-Code Deep Audit
 
